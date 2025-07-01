@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Edit User</title>
+</head>
+<body>
+  <h1>Edit User: <%= user.name %></h1>
+  <form action="/admin/users/edit/<%= user._id %>" method="POST">
+    <label>Name:</label>
+    <input type="text" name="name" value="<%= user.name %>" required><br>
+
+    <label>Email:</label>
+    <input type="email" name="email" value="<%= user.email %>" required><br>
+
+    <label>Role:</label>
+    <select name="role">
+      <option value="user" <%= user.role === 'user' ? 'selected' : '' %>>User</option>
+      <option value="admin" <%= user.role === 'admin' ? 'selected' : '' %>>Admin</option>
+    </select><br>
+
+    <button type="submit">Update User</button>
+  </form>
+  <a href="/admin/users">Back to User List</a>
+</body>
+</html>

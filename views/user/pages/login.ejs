@@ -30,6 +30,17 @@
       color: #333;
     }
 
+    .error-message {
+      background: #ffe5e5;
+      color: #d8000c;
+      border: 1px solid #d8000c;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      font-size: 13px;
+      text-align: center;
+    }
+
     .input-group {
       margin-bottom: 20px;
       display: flex;
@@ -81,31 +92,40 @@
 <body>
   <div class="login-container">
     <h2>Login</h2>
-    
+
     <% if (error) { %>
       <div class="error-message"><%= error %></div>
     <% } %>
+
     <form id="loginForm" action="/user/login" method="POST" onsubmit="return validateForm()">
-
-
       <div class="input-group">
         <label for="email">Email</label>
-        <input type="text" id="email" name="email" value="<%= email %>" placeholder="Enter your email">
-
+        <input
+          type="text"
+          id="email"
+          name="email"
+          placeholder="Enter your email"
+          value="<%= typeof email !== 'undefined' ? email : '' %>"
+        >
         <span class="error" id="emailError"></span>
       </div>
+
       <div class="input-group">
         <label for="password">Password</label>
-        <input type="password" id="password" name="password" placeholder="Enter your password">
+        <input
+          type="password"
+          id="password"
+          name="password"
+          placeholder="Enter your password"
+        >
         <span class="error" id="passwordError"></span>
       </div>
+
       <button type="submit">Login</button>
     </form>
   </div>
 
   <script>
-   
-
     function validateForm() {
       let email = document.getElementById('email').value.trim();
       let password = document.getElementById('password').value.trim();

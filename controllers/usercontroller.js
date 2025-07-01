@@ -4,6 +4,8 @@ const express = require('express');
 const User = require('../models/usermodel');
 const bcrypt = require('bcrypt');
 const path = require('path');
+const Bill = require('../models/billmodel');
+const Tesseract = require('tesseract.js');
 
 
 
@@ -14,7 +16,10 @@ exports.loginUser = async (req, res) => {
 
     if (!email || !password) {
       console.log("Missing fields");
-      return res.send('All fields are required');
+      return res.render('user/pages/login', {
+        error: 'All fields are required',
+        email
+      });
     }
 
     const user = await User.findOne({ email });
@@ -22,7 +27,18 @@ exports.loginUser = async (req, res) => {
 
     if (!user) {
       console.log("User not found in DB");
-      return res.send('User not found');
+      return res.render('user/pages/login', {
+        error: 'User not found',
+        email
+      });
+    }
+
+    if (user.status === 'blocked') {
+      console.log("Blocked user attempted login");
+      return res.render('user/pages/login', {
+        error: 'Your account has been blocked. Please contact admin.',
+        email
+      });
     }
 
     console.log("Comparing passwords...");
@@ -30,7 +46,10 @@ exports.loginUser = async (req, res) => {
     console.log("Password match:", isMatch);
 
     if (!isMatch) {
-      return res.send('Invalid password');
+      return res.render('user/pages/login', {
+        error: 'Invalid password',
+        email
+      });
     }
 
     req.session.user = {
@@ -44,7 +63,10 @@ exports.loginUser = async (req, res) => {
     req.session.save(err => {
       if (err) {
         console.error("Session save error:", err);
-        return res.send("Session error");
+        return res.render('user/pages/login', {
+          error: 'Session error. Please try again.',
+          email
+        });
       }
 
       console.log("Login successful, redirecting...");
@@ -53,9 +75,13 @@ exports.loginUser = async (req, res) => {
 
   } catch (error) {
     console.error("🔥 Unexpected Login Error:", error);
-    res.send("🔥 Unexpected error during login: " + error.message);
+    res.render('user/pages/login', {
+      error: '🔥 Unexpected error during login: ' + error.message,
+      email: req.body.email
+    });
   }
 };
+
 
 
 
@@ -162,9 +188,62 @@ exports.registerUser = async (req, res) => {
     await newUser.save();
 
     // Redirect to login page after successful registration
-    res.redirect('/user');
+    res.redirect('/user/login');
   } catch (error) {
     console.error(error);
     res.status(500).send('Server error');
   }
+};
+
+exports.uploadBill = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).send('No file uploaded');
+    }
+
+    // Log details
+    console.log('Received file:', req.file.originalname);
+
+    // Run Tesseract OCR on the file buffer
+    console.log('Running OCR...');
+    const { data: { text } } = await Tesseract.recognize(
+      req.file.buffer,
+      'eng',
+      { logger: m => console.log(m) } // Optional progress log
+    );
+
+    console.log('Extracted text:', text);
+
+    // Save to MongoDB
+    const bill = new Bill({
+      userId: req.session.user.id,
+      filename: req.file.originalname,
+      fileType: req.file.mimetype,
+      fileData: req.file.buffer,
+      extractedText: text
+    });
+
+    await bill.save();
+
+    res.send(`
+      <h1>Upload Success!</h1>
+      <p><strong>File Name:</strong> ${req.file.originalname}</p>
+      <p><strong>Extracted Text:</strong></p>
+      <pre style="background:#eee; padding:1rem;">${text}</pre>
+    `);
+
+  } catch (error) {
+    console.error('Error uploading & extracting:', error);
+    res.status(500).send('Error processing file');
+  }
+};
+
+
+
+exports.getDashboard = async (req, res) => {
+  const bills = await Bill.find({ userId: req.session.user.id }).sort({ createdAt: -1 });
+  res.render('user/pages/dashboard', {
+    session: req.session,
+    bills
+  });
 };
