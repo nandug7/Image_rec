@@ -6,6 +6,10 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 const Bill = require('../models/billmodel');
 const Tesseract = require('tesseract.js');
+const { extractTotalAndCategory } = require('../utils/parser');
+const mongoose = require('mongoose');
+
+
 
 
 
@@ -70,7 +74,7 @@ exports.loginUser = async (req, res) => {
       }
 
       console.log("Login successful, redirecting...");
-      res.redirect('/user/homepage');
+      res.redirect('/user/');
     });
 
   } catch (error) {
@@ -147,9 +151,7 @@ exports.getSignupPage = (req, res) => {
 };
 
 exports.homepage = (req, res) => {
-  if (!req.session.user) {
-    return res.redirect('/user/login'); // Redirect if not logged in
-  }
+
 
   res.render('user/pages/homepage', {
     session: req.session // ✅ Pass session to EJS
@@ -201,36 +203,30 @@ exports.uploadBill = async (req, res) => {
       return res.status(400).send('No file uploaded');
     }
 
-    // Log details
-    console.log('Received file:', req.file.originalname);
-
-    // Run Tesseract OCR on the file buffer
     console.log('Running OCR...');
-    const { data: { text } } = await Tesseract.recognize(
-      req.file.buffer,
-      'eng',
-      { logger: m => console.log(m) } // Optional progress log
-    );
-
+     const { data: { text } } = await Tesseract.recognize(
+    req.file.buffer,
+    'eng',
+    { logger: m => console.log(m) }
+  );
     console.log('Extracted text:', text);
 
-    // Save to MongoDB
-    const bill = new Bill({
-      userId: req.session.user.id,
-      filename: req.file.originalname,
-      fileType: req.file.mimetype,
-      fileData: req.file.buffer,
-      extractedText: text
-    });
+    const { totalAmount, category } = extractTotalAndCategory(text);
+    console.log('Parsed totalAmount:', totalAmount, 'Category:', category);
+
+const bill = new Bill({
+  userId: req.session.user.id,
+  filename: req.file.originalname,
+  fileType: req.file.mimetype,
+  fileData: req.file.buffer,
+  extractedText: text,
+  totalAmount: totalAmount || null,
+  category: category || 'Other'
+});
 
     await bill.save();
 
-    res.send(`
-      <h1>Upload Success!</h1>
-      <p><strong>File Name:</strong> ${req.file.originalname}</p>
-      <p><strong>Extracted Text:</strong></p>
-      <pre style="background:#eee; padding:1rem;">${text}</pre>
-    `);
+    res.redirect('/user/dashboard');
 
   } catch (error) {
     console.error('Error uploading & extracting:', error);
@@ -240,10 +236,145 @@ exports.uploadBill = async (req, res) => {
 
 
 
+
+
+
+
+
 exports.getDashboard = async (req, res) => {
-  const bills = await Bill.find({ userId: req.session.user.id }).sort({ createdAt: -1 });
-  res.render('user/pages/dashboard', {
-    session: req.session,
-    bills
-  });
+  try {
+    const userId = req.session.user.id;
+
+    // 1️⃣ Fetch all bills for user
+    const bills = await Bill.find({ userId }).sort({ createdAt: -1 });
+    // 2️⃣ Calculate total per category
+    const categoryTotals = {}; // { Housing: 1234, Food: 567 }
+
+    let grandTotal = 0;
+
+    bills.forEach(bill => {
+      const cat = bill.category || 'Uncategorized';
+      const amt = bill.totalAmount || 0;
+
+      if (!categoryTotals[cat]) {
+        categoryTotals[cat] = 0;
+      }
+
+      categoryTotals[cat] += amt;
+      grandTotal += amt;
+    });
+
+    console.log('📊 Category Totals:', categoryTotals);
+    console.log('💰 Grand Total:', grandTotal);
+
+    res.render('user/pages/dashboard', {
+      session: req.session,
+      bills,
+      categoryTotals,
+      grandTotal
+    });
+
+  } catch (err) {
+    console.error('❌ Dashboard error:', err);
+    res.status(500).send('Server error');
+  }
 };
+
+
+exports.getReport = async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+
+    // 1️⃣ Total spend per category for pie chart
+    const categoryTotals = await Bill.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: "$category",
+          totalSpent: { $sum: "$totalAmount" }
+        }
+      },
+      { $sort: { totalSpent: -1 } }
+    ]);
+
+    // 2️⃣ Month-wise spend per category
+    const monthWise = await Bill.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+            category: "$category"
+          },
+          totalSpent: { $sum: "$totalAmount" }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: "$_id.year",
+            month: "$_id.month"
+          },
+          categories: {
+            $push: {
+              category: "$_id.category",
+              totalSpent: "$totalSpent"
+            }
+          },
+          monthTotal: { $sum: "$totalSpent" }
+        }
+      },
+      { $sort: { "_id.year": -1, "_id.month": -1 } }
+    ]);
+
+    // 3️⃣ Year-wise spend per category
+    const yearWise = await Bill.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            category: "$category"
+          },
+          totalSpent: { $sum: "$totalAmount" }
+        }
+      },
+      {
+        $group: {
+          _id: "$_id.year",
+          categories: {
+            $push: {
+              category: "$_id.category",
+              totalSpent: "$totalSpent"
+            }
+          },
+          yearTotal: { $sum: "$totalSpent" }
+        }
+      },
+      { $sort: { "_id": -1 } }
+    ]);
+
+    res.render('user/pages/report', {
+      session: req.session,
+      categoryTotals,
+      monthWise,
+      yearWise
+    });
+
+  } catch (err) {
+    console.error('❌ Report error:', err);
+    res.status(500).send('Server error');
+  }
+};
+
+
+// exports.listUsers = async (req, res) => {
+//   try {
+    
+//     res.render('admin/pages/users');
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).send('Server Error');
+//   }
+// };

@@ -15,11 +15,12 @@ router.get('/signup', userController.getSignupPage);
 router.post('/signup', userController.registerUser);
 
 // ✅ Protect this route
-router.get('/homepage', userController.homepage);
+router.get('/', userController.homepage);
 
 router.get('/logout', userController.logoutUser); // ✅ Logout route
 router.post('/upload', isAuthenticated, upload.single('billFile'), userController.uploadBill);
 router.get('/dashboard', isAuthenticated, userController.getDashboard);
+router.get('/report', isAuthenticated, userController.getReport);
 
 
 module.exports = router;

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Detailed Report | Smart Bill Extractor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body class="bg-gray-900 text-white min-h-screen flex flex-col">
+  <!-- Navbar -->
+  <nav class="w-full bg-gray-800 py-4 px-6 flex justify-between items-center shadow-md">
+    <h1 class="text-xl font-bold">Smart Bill Extractor</h1>
+    <ul class="flex space-x-6">
+      <li><a href="/user/" class="hover:text-blue-400">Home</a></li>
+      <li><a href="/user/dashboard" class="hover:text-blue-400">Dashboard</a></li>
+      <li><a href="/user/report" class="hover:text-blue-400">Report</a></li>
+    </ul>
+    <div>
+      <span class="mr-4">Welcome, <%= session.user.name %>!</span>
+      <a href="/user/logout" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">Logout</a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="flex-grow px-8 py-12">
+    <h2 class="text-3xl font-bold mb-6">Your Detailed Report</h2>
+
+    <!-- ✅ Pie Chart -->
+    <section class="mb-12">
+      <h3 class="text-xl font-semibold mb-4">Category-wise Spending (Pie Chart)</h3>
+      <div class="w-64 mx-auto">
+        <canvas id="categoryPieChart"></canvas>
+      </div>
+    </section>
+
+    <!-- ✅ Month-wise breakdown -->
+    <section class="mb-12">
+      <h3 class="text-xl font-semibold mb-4">Month-wise Spending</h3>
+      <% if (monthWise.length === 0) { %>
+        <p class="text-gray-400">No data available.</p>
+      <% } else { %>
+        <% monthWise.forEach(month => { 
+          const maxSpent = Math.max(...month.categories.map(c => c.totalSpent));
+        %>
+          <div class="mb-6 bg-gray-800 p-4 rounded shadow">
+            <h4 class="text-lg font-bold mb-2">
+              <%= month._id.year %> - 
+              <%= new Date(month._id.year, month._id.month - 1).toLocaleString('default', { month: 'long' }) %>
+            </h4>
+            <ul>
+              <% month.categories.forEach(cat => { %>
+                <li class="flex justify-between border-b border-gray-700 py-1 <%= cat.totalSpent === maxSpent ? 'text-red-400 font-bold' : '' %>">
+                  <span>
+                    <%= cat.category %>
+                    <% if (cat.totalSpent === maxSpent) { %> 🔔 Highest spending! <% } %>
+                  </span>
+                  <span>$<%= cat.totalSpent.toFixed(2) %></span>
+                </li>
+              <% }); %>
+            </ul>
+            <div class="flex justify-between font-bold mt-2 text-green-400">
+              <span>Month Total:</span>
+              <span>$<%= month.monthTotal.toFixed(2) %></span>
+            </div>
+          </div>
+        <% }); %>
+      <% } %>
+    </section>
+
+    <!-- ✅ Year-wise breakdown -->
+    <section class="mb-12">
+      <h3 class="text-xl font-semibold mb-4">Year-wise Spending</h3>
+      <% if (yearWise.length === 0) { %>
+        <p class="text-gray-400">No data available.</p>
+      <% } else { %>
+        <% yearWise.forEach(year => { 
+          const maxSpentYear = Math.max(...year.categories.map(c => c.totalSpent));
+        %>
+          <div class="mb-6 bg-gray-800 p-4 rounded shadow">
+            <h4 class="text-lg font-bold mb-2">
+              <%= year._id %>
+            </h4>
+            <ul>
+              <% year.categories.forEach(cat => { %>
+                <li class="flex justify-between border-b border-gray-700 py-1 <%= cat.totalSpent === maxSpentYear ? 'text-red-400 font-bold' : '' %>">
+                  <span>
+                    <%= cat.category %>
+                    <% if (cat.totalSpent === maxSpentYear) { %> 🔔 Highest spending! <% } %>
+                  </span>
+                  <span>$<%= cat.totalSpent.toFixed(2) %></span>
+                </li>
+              <% }); %>
+            </ul>
+            <div class="flex justify-between font-bold mt-2 text-green-400">
+              <span>Year Total:</span>
+              <span>$<%= year.yearTotal.toFixed(2) %></span>
+            </div>
+          </div>
+        <% }); %>
+      <% } %>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="w-full text-center py-6 bg-gray-800 text-gray-400 mt-auto">
+    <p>&copy; 2025 Smart Bill Extractor. All rights reserved.</p>
+  </footer>
+
+  <!-- ✅ Pie Chart Script -->
+  <script>
+    const pieLabels = <%- JSON.stringify(categoryTotals.map(ct => ct._id)) %>;
+    const pieData = <%- JSON.stringify(categoryTotals.map(ct => ct.totalSpent)) %>;
+    const pieColors = pieLabels.map((_, i) => `hsl(${i * 360 / pieLabels.length}, 70%, 50%)`);
+
+    const ctxPie = document.getElementById('categoryPieChart').getContext('2d');
+    new Chart(ctxPie, {
+      type: 'pie',
+      data: {
+        labels: pieLabels,
+        datasets: [{
+          data: pieData,
+          backgroundColor: pieColors
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'right'
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

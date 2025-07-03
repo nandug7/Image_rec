@@ -1,29 +1,54 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Your Dashboard | Smart Bill Extractor</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Your Dashboard | Smart Bill Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
 
-<body class="bg-gray-900 text-white min-h-screen flex flex-col">
-  <!-- Navbar -->
-  <nav class="w-full bg-gray-800 py-4 px-6 flex justify-between items-center shadow-md">
-    <h1 class="text-xl font-bold">Smart Bill Extractor</h1>
-    <ul class="flex space-x-6">
-      <li><a href="/user/homepage" class="hover:text-blue-400">Home</a></li>
-      <li><a href="/user/upload" class="hover:text-blue-400">Upload New Bill</a></li>
-    </ul>
-    <div>
-      <span class="mr-4">Welcome, <%= session.user.name %>!</span>
-      <a href="/user/logout" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">Logout</a>
-    </div>
-  </nav>
+  <body class="bg-gray-900 text-white min-h-screen flex flex-col">
+    <!-- Navbar -->
+    <nav class="w-full bg-gray-800 py-4 px-6 flex justify-between items-center shadow-md">
+      <h1 class="text-xl font-bold">Smart Bill Extractor</h1>
+      <ul class="flex space-x-6">
+        <li><a href="/user/" class="hover:text-blue-400">Home</a></li>
+        <li><a href="/user/" class="hover:text-blue-400">Upload New Bill</a></li>
+      </ul>
+      <!-- ✅ Button to Report Page -->
+<div class="mt-4">
+  <a href="/user/report"
+     class="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+    View Detailed Report
+  </a>
+</div>
 
-  <!-- Main Content -->
+      <div>
+        <span class="mr-4">Welcome, <%= session.user.name %>!</span>
+        <a href="/user/logout" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">Logout</a>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
   <main class="flex-grow px-8 py-12">
     <h2 class="text-3xl font-bold mb-6">Your Uploaded Bills</h2>
+
+    <!-- ✅ Totals Summary -->
+    <div class="mb-8">
+      <h3 class="text-xl font-semibold mb-2">Totals by Category:</h3>
+      <ul class="bg-gray-800 p-4 rounded-lg">
+        <% Object.keys(categoryTotals).forEach(cat => { %>
+          <li class="flex justify-between border-b border-gray-700 py-2">
+            <span><%= cat %></span>
+            <span>$<%= categoryTotals[cat].toFixed(2) %></span>
+          </li>
+        <% }) %>
+        <li class="flex justify-between font-bold text-green-400 mt-4">
+          <span>Grand Total:</span>
+          <span>$<%= grandTotal.toFixed(2) %></span>
+        </li>
+      </ul>
+    </div>
 
     <% if (bills.length === 0) { %>
       <p class="text-gray-400">You haven’t uploaded any bills yet. <a href="/user/upload" class="text-blue-400 underline">Upload now</a>.</p>
@@ -32,20 +57,20 @@
         <% bills.forEach(bill => { %>
           <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
             <h3 class="text-xl font-semibold mb-2"><%= bill.filename %></h3>
-            <p class="text-sm text-gray-400 mb-2">Uploaded on: <%= bill.createdAt.toDateString() %></p>
-            <h4 class="text-lg font-bold mb-1">Extracted Details:</h4>
-            <pre class="bg-gray-700 p-4 rounded text-sm overflow-x-auto"><%= bill.extractedText || 'No text extracted.' %></pre>
-            <!-- Optional: Download original file -->
-            <!-- <a href="/user/download/<%= bill._id %>" class="text-blue-400 hover:underline mt-2 inline-block">Download Original</a> -->
+            <p class="text-sm text-gray-400 mb-1">Uploaded: <%= bill.createdAt.toDateString() %></p>
+            <p class="text-sm text-gray-400 mb-1">Category: <%= bill.category || 'N/A' %></p>
+            <p class="text-sm text-gray-400 mb-1">Total Amount: <%= bill.totalAmount ? '$' + bill.totalAmount.toFixed(2) : 'N/A' %></p>
+            <pre class="bg-gray-700 p-4 rounded text-sm overflow-x-auto"><%= bill.extractedText %></pre>
           </div>
         <% }); %>
       </div>
     <% } %>
   </main>
 
-  <!-- Footer -->
-  <footer class="w-full text-center py-6 bg-gray-800 text-gray-400 mt-auto">
-    <p>&copy; 2025 Smart Bill Extractor. All rights reserved.</p>
-  </footer>
-</body>
-</html>
+
+    <!-- Footer -->
+    <footer class="w-full text-center py-6 bg-gray-800 text-gray-400 mt-auto">
+      <p>&copy; 2025 Smart Bill Extractor. All rights reserved.</p>
+    </footer>
+  </body>
+  </html>
